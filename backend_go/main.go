@@ -10,7 +10,9 @@ import (
 )
 
 const dbName = "rutas_medicas"
-const collectionName = "person"
+const collectionName = "persona"
+const collectionNameEps = "eps"
+
 const port = 8000
 
 func getPerson(c *fiber.Ctx) {
@@ -113,6 +115,41 @@ func deletePerson(c *fiber.Ctx) {
 	c.Send(jsonResponse)
 }
 
+func getEps(c *fiber.Ctx) {
+	collection, err := getMongoDbCollection(dbName, collectionNameEps)
+	if err != nil {
+		c.Status(500).Send(err)
+		return
+	}
+
+	var filter bson.M = bson.M{}
+
+	if c.Params("codigo") != "" {
+		id := c.Params("id")
+		objID, _ := primitive.ObjectIDFromHex(id)
+		filter = bson.M{"codigo": objID}
+	}
+
+	var results []bson.M
+	cur, err := collection.Find(context.Background(), filter)
+	defer cur.Close(context.Background())
+
+	if err != nil {
+		c.Status(500).Send(err)
+		return
+	}
+
+	cur.All(context.Background(), &results)
+
+	if results == nil {
+		c.SendStatus(404)
+		return
+	}
+
+	json, _ := json.Marshal(results)
+	c.Send(json)
+}
+
 func main() {
 	app := fiber.New()
 
@@ -120,6 +157,8 @@ func main() {
 	app.Post("/persona", createPerson)
 	app.Put("/persona/:id", updatePerson)
 	app.Delete("/persona/:id", deletePerson)
+
+	app.Get("/eps/listado-eps", getEps)
 
 	app.Listen(port)
 }
